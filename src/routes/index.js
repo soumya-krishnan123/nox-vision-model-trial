@@ -1,9 +1,9 @@
 const express = require('express');
-const userRoutes = require('./userRoutes');
+const modelRoutes = require('./modelRoutes');
 
 const router = express.Router();
 
-router.use('/user', userRoutes);
+router.use('/model', modelRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {
