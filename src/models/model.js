@@ -3,6 +3,7 @@ const db = require('../config/db');
 
 // File upload related operations
 exports.createFileUpload = async (fileData) => {
+
   const { 
     user_id, 
     filename,        // model_name
@@ -10,8 +11,28 @@ exports.createFileUpload = async (fileData) => {
     thumbnail_path, 
     file_type, 
     file_size,
-    detection = null
+    detection = null,
+    model_id
   } = fileData;
+
+
+    // Step 1: Get latest model_id
+    const result = await db.query(`
+      SELECT model_id 
+      FROM models 
+      WHERE model_id IS NOT NULL
+      ORDER BY created_at DESC 
+      LIMIT 1
+    `);
+  
+    let newModelId = 'model00001';
+  
+    if (result.rows.length > 0 && result.rows[0].model_id) {
+      const lastId = result.rows[0].model_id; 
+      const numberPart = parseInt(lastId.replace('model', '')) || 0;
+      const nextNumber = numberPart + 1;
+      newModelId = 'model' + String(nextNumber).padStart(5, '0'); 
+    }
   const model_date = new Date();
   const query = `
     INSERT INTO models (
@@ -22,12 +43,13 @@ exports.createFileUpload = async (fileData) => {
       file_type,
       file_size,
       detection,
-      model_date
+      model_date,
+      model_id
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     RETURNING 
       id, user_id, model_name, model_path, thumbnail_path, 
-      file_type, file_size, detection, 
+      file_type, file_size, detection, model_id,
       created_at, updated_at
   `;
 
@@ -39,7 +61,8 @@ exports.createFileUpload = async (fileData) => {
     file_type,
     file_size,
     detection,
-    model_date
+    model_date,
+    newModelId
   ];
 
   const { rows } = await db.query(query, values);
