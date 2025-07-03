@@ -72,7 +72,7 @@ exports.createFileUpload = async (fileData) => {
 
 exports.getModelsByUserId = async (userId) => {
   const query = `
-    SELECT id, model_name, model_path, thumbnail_path, file_type, file_size, created_at
+    SELECT id, model_name, model_path, thumbnail_path, file_type, file_size, created_at,detection,model_status,level,model_date,model_id
     FROM models
     WHERE user_id = $1 and status = true
     ORDER BY created_at DESC

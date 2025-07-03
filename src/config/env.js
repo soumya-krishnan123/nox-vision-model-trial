@@ -12,4 +12,5 @@ module.exports = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '1d',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
   
+  
 };

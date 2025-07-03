@@ -7,6 +7,7 @@ const logger = require('../utils/logger');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
+const { uploadToS3 } = require('../config/s3upload');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -55,15 +56,13 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024 // 100MB limit
   }
 });
-
-
 exports.uploadModel = async (req, res, next) => {
   try {
     upload.fields([
       { name: 'file', maxCount: 1 },
-      { name: 'thumbnail', maxCount: 1 } // optional
+      { name: 'thumbnail', maxCount: 1 }
     ])(req, res, async (err) => {
-      if (err instanceof multer.MulterError) {
+      if (err instanceof require('multer').MulterError) {
         logger?.error?.(err);
         return res.status(400).json({
           status: false,
@@ -78,45 +77,48 @@ exports.uploadModel = async (req, res, next) => {
           message: 'Unexpected upload error',
         });
       }
-      console.log('FILES RECEIVED:', req.files);
-      console.log('BODY RECEIVED:', req.body);    
+
       const glbFile = req.files?.file?.[0] || null;
-      console.log(req.files);
-      const thumbnailFile = req.files?.thumbnail?.[0]  || null;
-      console.log(thumbnailFile);
+      const thumbnailFile = req.files?.thumbnail?.[0] || null;
       const { customFilename } = req.body;
       const userId = req.user.id;
 
       if (!glbFile) {
-        console.log('GLB file is required');
         return res.status(400).json({
           status: false,
           status_code: 400,
-          message: 'GLB model file is required'
+          message: 'GLB model file is required',
         });
       }
 
-      // Store thumbnail if provided
-      let thumbnailPath = null;
+      // Upload model to S3
+      const glbFileUrl = await uploadToS3(
+        glbFile.buffer,
+        glbFile.originalname,
+        glbFile.mimetype,
+        'model' // will prefix with model- inside models/
+      );
 
+      // Upload thumbnail to S3 (optional)
+      let thumbnailUrl = null;
       if (thumbnailFile) {
-        const thumbnailFilename = `thumb-${Date.now()}-${thumbnailFile.originalname}`;
-        const destination = path.join(__dirname, '../../uploads/thumbnails', thumbnailFilename);
-        await fs.copyFile(thumbnailFile.path, destination);
-        thumbnailPath = path.join('uploads/thumbnails', thumbnailFilename).replace(/\\/g, '/');
+        thumbnailUrl = await uploadToS3(
+          thumbnailFile.buffer,
+          thumbnailFile.originalname,
+          thumbnailFile.mimetype,
+          'thumbnail' // will prefix with thumb- inside models/
+        );
       }
 
-      // Normalize GLB file path
-      const glbFilePath = glbFile.path.replace(__dirname, '').replace(/\\/g, '/');
-
+      // Save to DB
       const fileData = {
         user_id: userId,
-        filename: customFilename || glbFile.filename,
+        filename: customFilename || glbFile.originalname,
         original_filename: glbFile.originalname,
-        file_path: glbFilePath,
-        thumbnail_path: thumbnailPath,
+        file_path: glbFileUrl,
+        thumbnail_path: thumbnailUrl,
         file_type: path.extname(glbFile.originalname).toLowerCase(),
-        file_size: glbFile.size
+        file_size: glbFile.size,
       };
 
       const uploadedFile = await model.createFileUpload(fileData);
@@ -125,11 +127,10 @@ exports.uploadModel = async (req, res, next) => {
         status: true,
         status_code: 201,
         message: 'File uploaded successfully',
-        data: uploadedFile
+        data: uploadedFile,
       });
     });
   } catch (error) {
-    console.log(error);
     logger?.error?.(error) || console.log(error);
     next(error);
   }
