@@ -158,3 +158,13 @@ FROM models
   const { rows } = await db.query(query, [userId]);
   return rows[0];
 };
+
+
+// Fetch user session by token
+//for auth middleware by using user session
+exports.fetchUserSessionByToken = async (userId, token) => {
+  const query =
+    'SELECT * FROM user_sessions WHERE user_id = $1 AND token = $2'
+  const { rows } = await db.query(query, [userId, token]);
+  return rows[0];
+};
