@@ -252,10 +252,20 @@ exports.updateModel = async (id, userId, data) => {
 exports.getModelAnalytics = async (userId) => {
 
 const plan=await model.getActiveSubPlanforUserId(userId)
+if(!plan){
+  const err = new Error("No active subscription found");
+  err.statusCode  = 403;
+  throw err;
+}
 const plan_id=plan.plan_id
 console.log(plan_id);
 
 const plan_details=await model.getMonthlyQuotaforSubId(plan_id)
+if(!plan_details){
+  const err = new Error("No active Plans found");
+  err.statusCode  = 403;
+  throw err;
+}
 console.log(plan_details);
 
   try {
