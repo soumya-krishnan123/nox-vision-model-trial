@@ -6,12 +6,12 @@ exports.createFileUpload = async (fileData) => {
 
   const { 
     user_id, 
-    filename,        // model_name
-    file_path,       // model_path
+    filename,    
+    file_path,     
     thumbnail_path, 
     file_type, 
     file_size,
-    detection = null,
+    detection ,
     model_id
   } = fileData;
 
@@ -42,14 +42,14 @@ exports.createFileUpload = async (fileData) => {
       thumbnail_path,
       file_type,
       file_size,
-      detection,
+      
       model_date,
       model_id
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING 
       id, user_id, model_name, model_path, thumbnail_path, 
-      file_type, file_size, detection, model_id,
+      file_type, file_size, model_id,
       created_at, updated_at
   `;
 
@@ -60,7 +60,7 @@ exports.createFileUpload = async (fileData) => {
     thumbnail_path,
     file_type,
     file_size,
-    detection,
+   
     model_date,
     newModelId
   ];
@@ -107,52 +107,87 @@ exports.deleteModel = async (id, userId) => {
 
 
 exports.updateModel = async (id, data) => {
-  if (data.model_id) {
-    // Check for duplicate model_id owned by the same user but different id
-    const duplicateCheckQuery = `
-      SELECT id FROM models 
-      WHERE model_id = $1  AND id != $2
-      LIMIT 1
-    `;
-    const { rows } = await db.query(duplicateCheckQuery, [data.model_id, id]);
-    if (rows.length > 0) {
-      const error = new Error('model_id already exists for another model');
-      error.statusCode = 409; // Conflict
-      throw error;
-    }
-  }
+  // if (data.model_id) {
+  //   // Check for duplicate model_id owned by the same user but different id
+  //   const duplicateCheckQuery = `
+  //     SELECT id FROM models 
+  //     WHERE model_id = $1  AND id != $2
+  //     LIMIT 1
+  //   `;
+  //   const { rows } = await db.query(duplicateCheckQuery, [data.model_id, id]);
+  //   if (rows.length > 0) {
+  //     const error = new Error('model_id already exists for another model');
+  //     error.statusCode = 409; // Conflict
+  //     throw error;
+  //   }
+  // }
+
+
+
   const query = `
     UPDATE models
     SET 
       model_status = $1,
-      detection = $2,
-      model_id = $3,
-      level = $4
-    WHERE id = $5
+      detection =detection + $2,
+     
+      level = $3
+    WHERE model_id = $4
     RETURNING id, model_id, detection, model_status, level
   `;
-  const { rows } = await db.query(query, [data.model_status,data.detection,data.model_id,data.level,id]);
+  const { rows } = await db.query(query, [data.model_status,data.detection,data.level,data.model_id]);
   return rows[0];
 };
 
-
-exports.getModelAnalytics = async (userId) => {
+//get active subscription from subscriptions
+exports.getActiveSubPlanforUserId=async(userId)=>{
+  console.log(userId);
+  
   const query = `
-   SELECT 
+  SELECT plan_id 
+FROM subscriptions 
+WHERE user_id = $1 AND subscription_status = 'active'
+LIMIT 1;
+`;
+
+const { rows } = await db.query(query, [userId]);
+return rows[0];
+  
+}
+//get monthly quota 
+exports.getMonthlyQuotaforSubId=async(plan_id)=>{
+console.log(plan_id);
+
+  const query = `
+SELECT uploads, detections
+  FROM subscription_plans
+  WHERE plan_id = $1;
+`;
+
+const { rows } = await db.query(query, [plan_id]);
+return rows[0];
+}
+
+
+exports.getModelAnalyticsForMonth = async (userId) => {
+  const query = `
+SELECT 
   COUNT(*) AS total_models,
+  SUM(detection) AS total_detections,
+
   SUM(CASE 
-        WHEN TRIM(detection) != '' THEN CAST(detection AS INTEGER) 
-        ELSE 0 
-      END) AS total_detections,
-  SUM(CASE 
-        WHEN TRIM(detection) != '' 
-         AND model_date >= date_trunc('month', CURRENT_DATE)
+        WHEN model_date >= date_trunc('month', CURRENT_DATE)
          AND model_date < date_trunc('month', CURRENT_DATE) + interval '1 month'
-        THEN CAST(detection AS INTEGER)
+        THEN detection
         ELSE 0
-      END) AS detections_this_month
+      END) AS detections_this_month,
+      COUNT(CASE 
+          WHEN model_date >= date_trunc('month', CURRENT_DATE)
+           AND model_date < date_trunc('month', CURRENT_DATE) + interval '1 month'
+          THEN 1
+        END) AS uploads_this_month
 FROM models
-    WHERE user_id = $1;
+WHERE user_id = $1;
+
   `;
 
   const { rows } = await db.query(query, [userId]);

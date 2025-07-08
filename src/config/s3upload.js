@@ -15,6 +15,7 @@ const s3 = new S3Client({
 const multer = require('multer');
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
+
 const uploadToS3 = async (fileBuffer, originalName, mimeType, type = 'model') => {
   const prefix = type === 'thumbnail' ? 'thumb-' : 'model-';
   const fileKey = `models/${prefix}${uuidv4()}${path.extname(originalName)}`;

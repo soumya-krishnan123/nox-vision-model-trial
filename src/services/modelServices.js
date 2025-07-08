@@ -8,28 +8,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const { uploadToS3 } = require('../config/s3upload');
+const storage = multer.memoryStorage();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads');
-    const thumbnailDir = path.join(__dirname, '../../uploads/thumbnails');
-    
-    try {
-      await fs.mkdir(uploadDir, { recursive: true });
-      await fs.mkdir(thumbnailDir, { recursive: true });
-      cb(null, uploadDir);
-    } catch (error) {
-      console.log(error);
-      cb(error);
-    }
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
-  }
-});
 const fileFilter = (req, file, cb) => {
   const modelExtensions = ['.glb', '.gltf', '.ply', '.xyz', '.pcd'];
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp'];
@@ -49,15 +29,53 @@ const fileFilter = (req, file, cb) => {
 };
 
 
+
 const upload = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 100 * 1024 * 1024 // 100MB limit
+    fileSize: 100 * 1024 * 1024 // 100MB
   }
 });
 exports.uploadModel = async (req, res, next) => {
   try {
+ userId=req.user.id
+      console.log(userId);
+  
+      const activeSub = await model.getActiveSubPlanforUserId(userId);
+      if (!activeSub) {
+        throw new Error("No active subscription found");
+      }
+  
+      const plan_id = activeSub.plan_id;
+      console.log(plan_id);
+  
+      const planDetails = await model.getMonthlyQuotaforSubId(plan_id);
+      const uploadQuota = planDetails.uploads;
+  
+      const usage = await model.getModelAnalyticsForMonth(userId);
+      
+      const currentUploadUsage = usage?.uploads_this_month || 0;
+  
+      
+      const projectedTotal = parseInt(currentUploadUsage)+1;
+      console.log(`projectedTotal ${projectedTotal} ${uploadQuota}`);
+      
+      if (projectedTotal > uploadQuota) {
+        const error = new Error(
+          `Detection quota exceeded. Quota: ${uploadQuota}, Used: ${currentUploadUsage}, Attempted: 1`
+        );
+        error.statusCode = 403; 
+        throw error;
+      }
+  
+
+
+
+
+
+
+
     upload.fields([
       { name: 'file', maxCount: 1 },
       { name: 'thumbnail', maxCount: 1 }
@@ -90,12 +108,15 @@ exports.uploadModel = async (req, res, next) => {
           message: 'GLB model file is required',
         });
       }
-
+      const glbMimeType = path.extname(glbFile.originalname).toLowerCase() === '.glb'
+      ? 'model/gltf-binary'
+      : glbFile.mimetype;
+    
       // Upload model to S3
       const glbFileUrl = await uploadToS3(
         glbFile.buffer,
         glbFile.originalname,
-        glbFile.mimetype,
+        glbMimeType,
         'model' // will prefix with model- inside models/
       );
 
@@ -189,8 +210,39 @@ exports.deleteModel = async (id, userId) => {
 
 exports.updateModel = async (id, userId, data) => {
   try {
+    console.log(userId);
+
+    const activeSub = await model.getActiveSubPlanforUserId(userId);
+    if (!activeSub) {
+      throw new Error("No active subscription found");
+    }
+
+    const plan_id = activeSub.plan_id;
+    console.log(plan_id);
+
+    const planDetails = await model.getMonthlyQuotaforSubId(plan_id);
+    const detectionQuota = planDetails.detections;
+
+    const usage = await model.getModelAnalyticsForMonth(userId);
     
-    const newmodel = await model.updateModel(id, userId, data);
+    const currentDetectionUsage = usage?.detections_this_month || 0;
+
+    const newDetectionValue = parseInt(data.detection);
+    const projectedTotal = parseInt(currentDetectionUsage)+ parseInt(newDetectionValue);
+    console.log(`projectedTotal ${projectedTotal} ${detectionQuota}`);
+    
+    if (projectedTotal > detectionQuota) {
+      const error = new Error(
+        `Detection quota exceeded. Quota: ${detectionQuota}, Used: ${currentDetectionUsage}, Attempted: ${newDetectionValue}`
+      );
+      error.statusCode = 403; 
+      throw error;
+    }
+
+
+
+
+    const newmodel = await model.updateModel(id, data);
     return newmodel;
   } catch (error) {
     throw error;
@@ -198,10 +250,26 @@ exports.updateModel = async (id, userId, data) => {
 };  
 
 exports.getModelAnalytics = async (userId) => {
+
+const plan=await model.getActiveSubPlanforUserId(userId)
+const plan_id=plan.plan_id
+console.log(plan_id);
+
+const plan_details=await model.getMonthlyQuotaforSubId(plan_id)
+console.log(plan_details);
+
   try {
-      const data = await model.getModelAnalytics(userId);
-    
-    return data;
+      const data = await model.getModelAnalyticsForMonth(userId);
+    detection_balance=plan_details.detections-data.detections_this_month
+    return {
+      monthly_quota_uploads:plan_details.uploads,
+      monthly_quota_detections:plan_details.detections,
+      total_models:data.total_models,
+        total_detections: data.total_detections,
+        detections_this_month: data.detections_this_month,
+        uploads_this_month:data.uploads_this_month,
+        detection_balance:detection_balance
+    };
   } catch (error) {
     throw error;
   }

@@ -3,6 +3,10 @@ const modelServices = require('../services/modelServices');
 
 // File upload controllers
 exports.uploadModel = async (req, res, next) => {
+
+
+
+  
   try {
     await modelServices.uploadModel(req, res, next);
   } catch (error) {
@@ -58,8 +62,9 @@ exports.deleteModel = async (req, res, next) => {
 
 exports.updateModel = async (req, res, next) => {
   try {
+    const userId=req.user.id
     const modelId = req.params.id;
-    const updatedModel = await modelServices.updateModel(modelId, req.body);
+    const updatedModel = await modelServices.updateModel(modelId,userId, req.body);
     res.status(200).json({
       status: true,
       status_code: 200,
