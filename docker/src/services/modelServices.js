@@ -274,6 +274,7 @@ console.log(plan_details);
     return {
       monthly_quota_uploads:plan_details.uploads,
       monthly_quota_detections:plan_details.detections,
+      plan_name:plan_details.name,
       total_models:data.total_models,
         total_detections: data.total_detections,
         detections_this_month: data.detections_this_month,

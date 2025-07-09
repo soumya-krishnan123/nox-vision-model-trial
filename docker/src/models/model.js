@@ -158,7 +158,7 @@ exports.getMonthlyQuotaforSubId=async(plan_id)=>{
 console.log(plan_id);
 
   const query = `
-SELECT uploads, detections
+SELECT uploads, detections,name
   FROM subscription_plans
   WHERE plan_id = $1;
 `;
