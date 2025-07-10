@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config/env');
 const model = require('../models/model');
 const logger = require('../utils/logger');
+
 // File upload services
 const multer = require('multer');
 const path = require('path');
@@ -180,7 +181,21 @@ exports.getModelById = async (fileId, userId) => {
     throw error;
   }
 };
-
+exports.getModelByModelId = async (fileId, userId) => {
+  try {
+    const file = await model.getModelByModelId(fileId, userId);
+    if (!file) {
+      const error = new Error('File not found');
+      error.statusCode = 404;
+      throw error;
+    }
+    return file;
+  } catch (error) {
+    console.log(error);
+    
+    throw error;
+  }
+};
 exports.deleteModel = async (id, userId) => {
   try {
     const file = await model.deleteModel(id, userId);

@@ -93,6 +93,19 @@ exports.getModelById = async (modelId, userId) => {
   return rows[0];
 };
 
+exports.getModelByModelId = async (modelId, userId) => {
+  console.log(modelId, userId);
+  
+  const query = `
+    SELECT id, model_name, model_path, thumbnail_path, file_type, file_size, created_at
+    FROM models
+    WHERE model_id = $1 AND user_id = $2
+  `;
+  
+  const { rows } = await db.query(query, [modelId, userId]);
+  
+  return rows[0];
+};
 exports.deleteModel = async (id, userId) => {
   const query = `
     UPDATE models

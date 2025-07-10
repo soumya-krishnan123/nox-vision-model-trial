@@ -13,5 +13,5 @@ router.get('/analytics', auth, modelController.getModelAnalytics);
 router.get('/:id', auth, modelController.getModelById);
 router.put('/:id', auth, modelController.updateModel);
 router.delete('/:id', auth, modelController.deleteModel);
-
+router.get('/getByModelId/:id', auth, modelController.getModelByModelId);
 module.exports = router;

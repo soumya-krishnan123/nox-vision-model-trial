@@ -43,7 +43,20 @@ exports.getModelById = async (req, res, next) => {
     next(error);
   }
 };
-
+exports.getModelByModelId = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const modelId = req.params.id;
+    const model = await modelServices.getModelByModelId(modelId, userId);
+    res.status(200).json({
+      status: true,
+      status_code: 200,
+      data: model
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 exports.deleteModel = async (req, res, next) => {
   try {
     const userId = req.user.id;
